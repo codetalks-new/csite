@@ -1,9 +1,11 @@
 #include <arpa/inet.h>  /* for inet_ntoa */
+#include <fcntl.h>      /* for open O_RDONLY */
 #include <netinet/in.h> /* for IPv4 addr */
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>     /* for strerror */
 #include <sys/errno.h>  /* for errno */
+#include <sys/mman.h>   /* for mmap */
 #include <sys/socket.h> /* for socket,bind,listen,accept etc*/
 #include <sys/stat.h>   /* for stat */
 #include <unistd.h>     /* for write  read*/
@@ -70,27 +72,17 @@ ssize_t get_file_size(const char *filename) {
 
 ssize_t write_http_body(ct_socket_t clientfd, const char *filename,
                         size_t size) {
-  char buf[CT_BUF_SIZE] = {0};
-  FILE *file = fopen(filename, "rb");
-  if (!file) {
+  int fd = open(filename, O_RDONLY);
+  CT_GUARD(fd);
+  void *map_mem = mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (map_mem == MAP_FAILED) {
     return -1;
   }
-  size_t total_cnt = 0;
-  while (true) {
-    size_t read_cnt = fread(buf, sizeof(char), CT_BUF_SIZE, file);
-    if (read_cnt > 0) {
-      write(clientfd, buf, read_cnt);
-      total_cnt += read_cnt;
-    }
-    if (read_cnt < CT_BUF_SIZE) {
-      if (feof(file)) {
-        break;
-      } else if (ferror(file)) {
-        return -1;
-      }
-    }
-  }
-  return total_cnt;
+  int ret = write(clientfd, map_mem, size);
+  printf("sendfile %s size: %d bytes\n", filename, ret);
+  munmap(map_mem, size);
+  close(fd);
+  return ret;
 }
 
 int main(int argc, char const *argv[]) {
@@ -105,21 +97,24 @@ int main(int argc, char const *argv[]) {
     int clientfd =
         accept(serverfd, (struct sockaddr *)&client_addr, &client_addr_len);
     if (CHECK_FAIL(clientfd)) {
-      return -1;
+      continue;
     }
     char *client_ip = inet_ntoa(client_addr.sin_addr);
     printf("client connected: %s:%d\n", client_ip, ntohs(client_addr.sin_port));
     size_t file_size = get_file_size(index_filename);
     if (CHECK_FAIL(file_size)) {
-      return -1;
+      goto out_close;
     }
-    ssize_t send_cnt = write_http_header(clientfd, file_size);
-    if (!CHECK_FAIL(send_cnt)) {
-      send_cnt = write_http_body(clientfd, index_filename, file_size);
-      CHECK_FAIL(send_cnt);
+    int send_cnt = write_http_header(clientfd, file_size);
+    if (CHECK_FAIL(send_cnt)) {
+      goto out_close;
     }
-    int ret = close(clientfd);
-    CHECK_FAIL(ret);
+    send_cnt = write_http_body(clientfd, index_filename, file_size);
+    if (CHECK_FAIL(send_cnt)) {
+      goto out_close;
+    }
+  out_close:
+    close(clientfd);
   }
 
   return 0;
