@@ -85,6 +85,14 @@ ssize_t write_http_body(ct_socket_t clientfd, const char *filename,
   return ret;
 }
 
+ssize_t send_static_file(ct_socket_t clientfd, const char *filename) {
+  size_t file_size = get_file_size(filename);
+  CT_GUARD(file_size);
+  int send_cnt = write_http_header(clientfd, file_size);
+  CT_GUARD(send_cnt);
+  return write_http_body(clientfd, filename, file_size);
+}
+
 int main(int argc, char const *argv[]) {
   in_port_t port = 4321;
   int serverfd = create_web_server_socket(4321);
@@ -101,19 +109,8 @@ int main(int argc, char const *argv[]) {
     }
     char *client_ip = inet_ntoa(client_addr.sin_addr);
     printf("client connected: %s:%d\n", client_ip, ntohs(client_addr.sin_port));
-    size_t file_size = get_file_size(index_filename);
-    if (CHECK_FAIL(file_size)) {
-      goto out_close;
-    }
-    int send_cnt = write_http_header(clientfd, file_size);
-    if (CHECK_FAIL(send_cnt)) {
-      goto out_close;
-    }
-    send_cnt = write_http_body(clientfd, index_filename, file_size);
-    if (CHECK_FAIL(send_cnt)) {
-      goto out_close;
-    }
-  out_close:
+    int send_cnt = send_static_file(clientfd, index_filename);
+    CHECK_FAIL(send_cnt);
     close(clientfd);
   }
 
