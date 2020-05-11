@@ -16,6 +16,22 @@
       "options": {
         "cwd": "/usr/bin"
       },
+      "problemMatcher": []
+    },
+    {
+      "type": "shell",
+      "label": "clang build csite",
+      "command": "/usr/bin/clang",
+      "args": [
+        "-std=gnu11",
+        "-g",
+        "${workspaceFolder}/src/website.c",
+        "-o",
+        "${workspaceFolder}/bin/csite-debug"
+      ],
+      "options": {
+        "cwd": "/usr/bin"
+      },
       "problemMatcher": [],
       "group": {
         "kind": "build",

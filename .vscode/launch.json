@@ -5,17 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "clang++ - Build and debug active file",
+      "name": "Debug csite",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/${fileBasenameNoExtension}",
+      "program": "${workspaceFolder}/bin/csite-debug",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "MIMode": "lldb",
-      "preLaunchTask": "clang++ build active file"
+      "preLaunchTask": "clang build csite"
     }
   ]
 }
