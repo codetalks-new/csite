@@ -153,6 +153,9 @@ int main(int argc, char const *argv[]) {
     }
   }
   int serverfd = create_web_server_socket(port);
+  if (CHECK_FAIL(serverfd)) {
+    return serverfd;
+  }
   LOG_INFO("Serving at: http://0.0.0.0:%d", port);
   // struct sockaddr_storage addr_storage; // the right choice
   struct sockaddr_in client_addr;  // simple
