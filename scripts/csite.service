@@ -1,0 +1,22 @@
+[Unit]
+Description=C 语言实现的个人网站服务
+After=network.target
+Documentation=https://github.com/codetalks-new/csite
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+EnvironmentFile=/var/www/csite/.envs/.prod
+WorkingDirectory=/var/www/csite
+ExecStart=/var/www/csite/bin/csite
+Restart=always
+UMask=007
+PrivateTmp=yes
+PrivateDevices=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/csite
+ProtectSystem=true
+
+[Install]
+WantedBy=multi-user.target
