@@ -3,6 +3,7 @@
 #include <fcntl.h>  /* for open O_RDONLY */
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>    /* for getenv */
 #include <string.h>    /* for strerror strstr,strch*/
 #include <sys/errno.h> /* for errno **/
 #include <sys/mman.h>  /* for mmap */
@@ -74,7 +75,7 @@ ssize_t send_static_file(ct_socket_t clientfd, const char *filename) {
   TimeSpecRange range;
   int ret = perf_start(&range);
   CT_GUARD(ret);
-  size_t file_size = get_file_size(filename);
+  ssize_t file_size = get_file_size(filename);
   CT_GUARD(file_size);
   const char *content_type = guess_content_type(filename);
   int send_cnt = write_http_header(clientfd, content_type, file_size);
@@ -139,9 +140,20 @@ void get_file_path_from_uri(char *file_path, const char *uri) {
 }
 
 int main(int argc, char const *argv[]) {
+  // 增加从环境变量读取要设置的端口号
   in_port_t port = 4321;
-  int serverfd = create_web_server_socket(4321);
-  printf("Serving at: http://0.0.0.0:%d\n", port);
+  char *csite_port_str = getenv("CSITE_PORT");
+  if (csite_port_str) {
+    int csite_port = atoi(csite_port_str);
+    if (csite_port == 0) {
+      LOG_ERR("invalid CSITE_PORT:%s", csite_port_str);
+    } else {
+      LOG_INFO("use port from CSITE_PORT:%s", csite_port_str);
+      port = csite_port;
+    }
+  }
+  int serverfd = create_web_server_socket(port);
+  LOG_INFO("Serving at: http://0.0.0.0:%d", port);
   // struct sockaddr_storage addr_storage; // the right choice
   struct sockaddr_in client_addr;  // simple
   socklen_t client_addr_len = 0;
