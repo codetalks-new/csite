@@ -1,97 +1,17 @@
-#include <arpa/inet.h>  /* for inet_ntoa */
-#include <assert.h>     /* for assert */
-#include <fcntl.h>      /* for open O_RDONLY */
-#include <netinet/in.h> /* for IPv4 addr */
+#include <assert.h> /* for assert */
+#include <fcntl.h>  /* for open O_RDONLY */
 #include <stdbool.h>
 #include <stdio.h>
-#include <string.h>     /* for strerror strstr,strch*/
-#include <sys/errno.h>  /* for errno */
-#include <sys/mman.h>   /* for mmap */
-#include <sys/socket.h> /* for socket,bind,listen,accept etc*/
-#include <sys/stat.h>   /* for stat */
-#include <sys/time.h>   /* for gettimeofday,struct timespec */
-#include <time.h>       /* for strftime */
-#include <unistd.h>     /* for write  read*/
+#include <string.h>    /* for strerror strstr,strch*/
+#include <sys/errno.h> /* for errno **/
+#include <sys/mman.h>  /* for mmap */
+#include <sys/stat.h>  /* for stat */
+#include <unistd.h>    /* for write  read*/
 
-static char *log_time() {
-  const ssize_t TIME_LEN = 64;
-  static char buf[TIME_LEN] = {0};
-  bzero(buf, TIME_LEN);
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  struct tm *tm = localtime(&tv.tv_sec);
-  int millis = tv.tv_usec / 1000;
-  size_t pos = strftime(buf, TIME_LEN, "%F %T", tm);
-  snprintf(&buf[pos], TIME_LEN - pos, ".%03d", millis);
-  return buf;
-};
-
-#define CLEAN_ERRNO() (errno == 0 ? "None" : strerror(errno))
-#define LOG_ERR(MSG, ...)                                                      \
-  fprintf(stderr, "([%s]%s:%s:%d: errno: %s) " MSG "\n", log_time(), __FILE__, \
-          __func__, __LINE__, CLEAN_ERRNO(), ##__VA_ARGS__)
-
-#define LOG_INFO(MSG, ...) \
-  fprintf(stdout, "[%s] " MSG "\n", log_time(), ##__VA_ARGS__)
-
-#define CHECK_FAIL(ret)                                       \
-  ({                                                          \
-    bool fail = ret == -1;                                    \
-    errno_t __save_errno = errno;                             \
-    if (fail) {                                               \
-      fprintf(stderr, "%s:error:%d,%s\n", __func__, __LINE__, \
-              strerror(__save_errno));                        \
-    }                                                         \
-    errno = __save_errno;                                     \
-    fail;                                                     \
-  })
-
-#define CT_GUARD(ret) \
-  ({                  \
-    if (ret == -1) {  \
-      return -1;      \
-    }                 \
-  })
-/// socket 套接字描述符
-typedef int ct_socket_t;
-/// 创建用于 Web 站点的 Socket  (IPv4 Only)
-ct_socket_t create_web_server_socket(in_port_t port) {
-  int serverfd = socket(AF_INET, SOCK_STREAM, 0);
-  CT_GUARD(serverfd);
-  size_t addr_len = sizeof(struct sockaddr_in);
-  struct sockaddr_in addr4 = {
-      .sin_len = addr_len,
-      .sin_family = AF_INET,
-      .sin_port = htons(port),
-  };
-  addr4.sin_addr.s_addr = htonl(INADDR_ANY);
-  int ret = -1;
-  int option = 1;
-  ret = setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, &option, sizeof(option));
-  CT_GUARD(ret);
-  ret = bind(serverfd, (struct sockaddr *)&addr4, sizeof(addr4));
-  CT_GUARD(ret);
-  int backlog = 128;
-  ret = listen(serverfd, backlog);
-  CT_GUARD(ret);
-  return serverfd;
-}
-
-#define CRLF "\r\n"
-#define CT_BUF_SIZE 1024
-
-const char *http_status_code_to_text(int status_code) {
-  switch (status_code) {
-    case 200:
-      return "OK";
-    case 400:
-      return "Not Found";
-    case 500:
-      return "Internal Server Error";
-    default:
-      return " ";
-  }
-}
+#include "core/macros.h"
+#include "core/sockets.c"
+#include "core/times.c"
+#include "http/status.c"
 
 int write_http_error(ct_socket_t clientfd, int status_code) {
   const char *msg = http_status_code_to_text(status_code);
@@ -136,15 +56,6 @@ ssize_t write_http_body(ct_socket_t clientfd, const char *filename,
   return ret;
 }
 
-long diff_timespec_to_nsec(struct timespec start, struct timespec end) {
-  if (start.tv_sec > end.tv_sec) {
-    return diff_timespec_to_nsec(end, start);
-  }
-  long s = end.tv_sec - start.tv_sec;
-  long ns = s * 1000000000L + end.tv_nsec - start.tv_nsec;
-  return ns;
-}
-
 const char *guess_content_type(const char *filename) {
   // TODO 优化改为使用后缀判断
   if (strstr(filename, ".png")) {
@@ -159,9 +70,8 @@ const char *guess_content_type(const char *filename) {
 }
 
 ssize_t send_static_file(ct_socket_t clientfd, const char *filename) {
-  struct timespec ts_start;
-  struct timespec ts_end;
-  int ret = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts_start);
+  TimeSpecRange range;
+  int ret = perf_start(&range);
   CT_GUARD(ret);
   size_t file_size = get_file_size(filename);
   CT_GUARD(file_size);
@@ -169,9 +79,8 @@ ssize_t send_static_file(ct_socket_t clientfd, const char *filename) {
   int send_cnt = write_http_header(clientfd, content_type, file_size);
   CT_GUARD(send_cnt);
   send_cnt = write_http_body(clientfd, filename, file_size);
-  ret = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts_end);
-  CT_GUARD(ret);
-  long ns = diff_timespec_to_nsec(ts_start, ts_end);
+  long ns = perf_end_count_ns(&range);
+  CT_GUARD(ns);
   double ms = ns / 1000000.0;
   LOG_INFO("send file %s, size:%zu bytes, cost: %0.3fms", filename, file_size,
            ms);
