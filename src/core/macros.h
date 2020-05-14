@@ -2,12 +2,12 @@
 #include <string.h>    /* for strerror strstr,strch*/
 #include <sys/errno.h> /* for errno **/
 #define CLEAN_ERRNO() (errno == 0 ? "None" : strerror(errno))
-#define LOG_ERR(MSG, ...)                                                      \
-  fprintf(stderr, "([%s]%s:%s:%d: errno: %s) " MSG "\n", log_time(), __FILE__, \
-          __func__, __LINE__, CLEAN_ERRNO(), ##__VA_ARGS__)
+#define LOG_ERR(MSG, ...)                                                    \
+  fprintf(stderr, "([%s][ERROR] %s:%s:%d: errno: %s) " MSG "\n", log_time(), \
+          __FILE__, __func__, __LINE__, CLEAN_ERRNO(), ##__VA_ARGS__)
 
 #define LOG_INFO(MSG, ...) \
-  fprintf(stdout, "[%s] " MSG "\n", log_time(), ##__VA_ARGS__)
+  fprintf(stderr, "[%s][INFO] " MSG "\n", log_time(), ##__VA_ARGS__)
 
 #define CHECK_FAIL(ret)                                       \
   ({                                                          \
