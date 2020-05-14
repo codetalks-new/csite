@@ -12,7 +12,7 @@
 #define CHECK_FAIL(ret)                                       \
   ({                                                          \
     bool fail = ret == -1;                                    \
-    errno_t __save_errno = errno;                             \
+    int __save_errno = errno;                                 \
     if (fail) {                                               \
       fprintf(stderr, "%s:error:%d,%s\n", __func__, __LINE__, \
               strerror(__save_errno));                        \

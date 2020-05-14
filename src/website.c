@@ -1,3 +1,4 @@
+#define _GNU_SOURCE 1
 #include <assert.h> /* for assert */
 #include <fcntl.h>  /* for open O_RDONLY */
 #include <stdbool.h>

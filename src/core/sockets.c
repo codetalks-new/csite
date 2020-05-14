@@ -10,9 +10,9 @@ typedef int ct_socket_t;
 ct_socket_t create_web_server_socket(in_port_t port) {
   int serverfd = socket(AF_INET, SOCK_STREAM, 0);
   CT_GUARD(serverfd);
-  size_t addr_len = sizeof(struct sockaddr_in);
+  // size_t addr_len = sizeof(struct sockaddr_in);
   struct sockaddr_in addr4 = {
-      .sin_len = addr_len,
+      // .sin_len = addr_len, // Linux 下没有此字段
       .sin_family = AF_INET,
       .sin_port = htons(port),
   };

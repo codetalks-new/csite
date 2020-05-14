@@ -10,13 +10,22 @@
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include"
       ],
-      "defines": [],
+      "defines": ["_GNU_SOURCE"],
       "macFrameworkPath": [
         "/System/Library/Frameworks",
         "/Library/Frameworks",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/System/Library/Frameworks"
       ],
       "compilerPath": "/usr/bin/clang++",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "clang-x64"
+    },
+    {
+      "name": "Linux",
+      "defines": ["_GNU_SOURCE"],
+      "includePath": ["${workspaceFolder}/**", "/usr/include", "/usr/local/include"],
+      "compilerPath": "/usr/bin/clang-10",
       "cStandard": "c11",
       "cppStandard": "c++17",
       "intelliSenseMode": "clang-x64"
